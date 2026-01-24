@@ -25,27 +25,51 @@ public class JWTFilter extends OncePerRequestFilter {
     private JWTService jwtService;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        String authHeader = request.getHeader("Authorization");
-        String email = null, token = null;
-        try {
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                token = authHeader.substring(7);
-                email = jwtService.extractUsername(token);
-            }
-            if(email != null && SecurityContextHolder.getContext().getAuthentication() == null){
-                UserDetails userDetails = service.loadUserByEmail(email);
-                if (jwtService.validateToken(token,userDetails)){
-                    UsernamePasswordAuthenticationToken authToken =new UsernamePasswordAuthenticationToken(
-                            userDetails,null,userDetails.getAuthorities()
-                    );
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                }
-            }
-        }catch (Exception e){
-            System.out.println("Authentication Failed");
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String path = request.getServletPath();
+
+        // ✅ SKIP JWT FOR PUBLIC ENDPOINTS
+        if (path.equals("/api/med/user/signup")
+                || path.equals("/api/med/user/login")
+                || path.equals("/api/med/user/on-off")) {
+
+            filterChain.doFilter(request, response);
+            return;
         }
-        filterChain.doFilter(request,response);
+
+        String authHeader = request.getHeader("Authorization");
+        String email = null;
+        String token = null;
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+            email = jwtService.extractUsername(token);
+        }
+
+        if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            UserDetails userDetails = service.loadUserByEmail(email);
+
+            if (jwtService.validateToken(token, userDetails)) {
+                UsernamePasswordAuthenticationToken authToken =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails,
+                                null,
+                                userDetails.getAuthorities()
+                        );
+
+                authToken.setDetails(
+                        new WebAuthenticationDetailsSource().buildDetails(request)
+                );
+
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
+        }
+
+        filterChain.doFilter(request, response);
     }
+
 }
