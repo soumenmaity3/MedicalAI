@@ -93,7 +93,7 @@ public class UserController {
 
         Users saveUser=repo.save(newUser);
 
-        String token = jwtService.generatorKey(user.getEmail());
+        String token = jwtService.generateToken(user.getEmail());
 
         Map<String, Object> response = new HashMap<>();
         response.put("user", saveUser);
@@ -127,7 +127,7 @@ public class UserController {
         // ✅ If authentication fails → exception thrown automatically
 
         // ✅ Generate token ONLY after authentication
-        String token = jwtService.generatorKey(login.getEmail());
+        String token = jwtService.generateToken(login.getEmail());
 
         return ResponseEntity.ok(token);
     }
