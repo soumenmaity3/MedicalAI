@@ -17,7 +17,7 @@ public class UserService {
             Authentication authentication =
                     manager.authenticate(new UsernamePasswordAuthenticationToken(email,password));
             if(authentication.isAuthenticated()){
-                return service.generatorKey(email);
+                return service.generateToken(email);
             }
             return "fail";
         }catch (Exception e){
