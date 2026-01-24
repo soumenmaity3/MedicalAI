@@ -15,6 +15,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -49,6 +52,9 @@ public class UserController {
 
     @Autowired
     FileEncryptionUtil encryptionUtil;
+
+    @Autowired
+    private AuthenticationManager authenticationManager;
 
     @GetMapping("/on-off")
     public ResponseEntity<?> serverOnOff(){
@@ -98,29 +104,34 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?>loginUser(@RequestBody LoginUser login){
-        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
-        String email = login.getEmail();
-        String rawPassword = login.getPassword();
-        if (email == null || email.isEmpty()){
-            return new ResponseEntity<>("Email is required..",HttpStatus.NOT_ACCEPTABLE);
-        }
-        if (rawPassword == null || rawPassword.isEmpty()){
-            return new ResponseEntity<>("Password not matched..",HttpStatus.NOT_ACCEPTABLE);
-        }
-        Optional<Users> userDetails = repo.existByEmail(email);
-        if (userDetails.isEmpty()){
-            return new ResponseEntity<>("User not found..",HttpStatus.NOT_FOUND);
-        }
-        Users user = userDetails.get();
-        String hashPassword = user.getPassword();
-        if(!encoder.matches(rawPassword,hashPassword)){
-            return new ResponseEntity<>("Password not matched..",HttpStatus.NOT_FOUND);
-        }
-        String token = service.verify(email,rawPassword);
-        return new ResponseEntity<>(token,HttpStatus.OK);
+    public ResponseEntity<?> loginUser(@RequestBody LoginUser login) {
 
+        if (login.getEmail() == null || login.getEmail().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Email is required");
+        }
+
+        if (login.getPassword() == null || login.getPassword().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Password is required");
+        }
+
+        // 🔴 Authenticate using Spring Security
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        login.getEmail(),
+                        login.getPassword()
+                )
+        );
+
+        // ✅ If authentication fails → exception thrown automatically
+
+        // ✅ Generate token ONLY after authentication
+        String token = jwtService.generatorKey(login.getEmail());
+
+        return ResponseEntity.ok(token);
     }
+
     @GetMapping("/me")
     private ResponseEntity<?> myDetails(@RequestHeader("Authorization") String authHeader){
         String token = authorization.token(authHeader);
