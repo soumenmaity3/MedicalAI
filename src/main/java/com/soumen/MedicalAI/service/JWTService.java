@@ -4,7 +4,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -15,43 +14,39 @@ import java.util.function.Function;
 @Service
 public class JWTService {
 
-    @Value("${jwt.secret}")
-    private String secretKey;
+    // ✅ Secure 256-bit key (NO WeakKeyException)
+    private final SecretKey key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
 
-    @Value("${jwt.expiration}")
-    private long jwtExpireMs;
-
-    public String generatorKey(String username) {
+    // ✅ Generate JWT
+    public String generateToken(String email) {
         return Jwts.builder()
-                .setSubject(username)
-                .claim("email", username)
-                .setHeaderParam("typ", "JWT")
+                .setSubject(email)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + jwtExpireMs))
-                .signWith(getKey(), SignatureAlgorithm.HS256)
+                .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // 1 day
+                .signWith(key)
                 .compact();
     }
 
-    private SecretKey getKey() {
-        return Keys.hmacShaKeyFor(secretKey.getBytes());
+    // ✅ Extract username/email from token
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
     }
 
+    // ✅ Generic claim extractor
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        return claimsResolver.apply(extractAllClaims(token));
+    }
+
+    // ✅ Extract all claims
     private Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(getKey())
+                .setSigningKey(key)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
 
-    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        return claimsResolver.apply(extractAllClaims(token));
-    }
-
-    public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
-    }
-
+    // ✅ Token expiration
     private Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
@@ -60,6 +55,7 @@ public class JWTService {
         return extractExpiration(token).before(new Date());
     }
 
+    // ✅ Validate token
     public boolean validateToken(String token, UserDetails userDetails) {
         String username = extractUsername(token);
         return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
