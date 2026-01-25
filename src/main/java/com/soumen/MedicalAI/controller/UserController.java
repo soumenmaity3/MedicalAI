@@ -57,30 +57,30 @@ public class UserController {
     private AuthenticationManager authenticationManager;
 
     @GetMapping("/on-off")
-    public ResponseEntity<?> serverOnOff(){
-        return new ResponseEntity<>(true,HttpStatus.OK);
+    public ResponseEntity<?> serverOnOff() {
+        return new ResponseEntity<>(true, HttpStatus.OK);
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<?> signup(@RequestBody Users user){
+    public ResponseEntity<?> signup(@RequestBody Users user) {
 
         String email = user.getEmail();
-        if(email == null || email.isBlank()){
+        if (email == null || email.isBlank()) {
             return new ResponseEntity<>("Email is required..", HttpStatus.NOT_ACCEPTABLE);
         }
 
         Optional<Users> userEmail = repo.existByEmail(email);
-        if (userEmail.isPresent()){
+        if (userEmail.isPresent()) {
             return new ResponseEntity<>("User Already Exist. Please Login..", HttpStatus.CONFLICT);
         }
 
         String password = user.getPassword();
-        if(password == null || password.isBlank()){
+        if (password == null || password.isBlank()) {
             return new ResponseEntity<>("Password is required..", HttpStatus.NOT_ACCEPTABLE);
         }
 
         String name = user.getName();
-        if(name == null || name.isBlank()){
+        if (name == null || name.isBlank()) {
             return new ResponseEntity<>("Name is required..", HttpStatus.NOT_ACCEPTABLE);
         }
 
@@ -91,7 +91,7 @@ public class UserController {
         System.out.printf(user.getPassword());
         System.out.printf(user.getEmail());
 
-        Users saveUser=repo.save(newUser);
+        Users saveUser = repo.save(newUser);
 
         String token = jwtService.generateToken(user.getEmail());
 
@@ -132,8 +132,25 @@ public class UserController {
         return ResponseEntity.ok(token);
     }
 
+    @GetMapping("/me/{id}")
+    private ResponseEntity<?> myDetails(@RequestHeader("Authorization") String authHeader, @PathVariable(value = "id",required = false) UUID userId) {
+        String token = authorization.token(authHeader);
+        try {
+            String email = service.EmailFromToken(token);
+            Optional<Users> existUser = repo.existByEmail(email);
+            if (existUser.isEmpty()) {
+                return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
+            } else if (existUser.get().getId().equals(userId)) {
+                return new ResponseEntity<>("User not found..",HttpStatus.NOT_FOUND);
+            }
+            return new ResponseEntity<>(existUser.get(), HttpStatus.OK);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @GetMapping("/me")
-    private ResponseEntity<?> myDetails(@RequestHeader("Authorization") String authHeader){
+    private ResponseEntity<?> myDetails(@RequestHeader("Authorization") String authHeader) {
         String token = authorization.token(authHeader);
         try {
             String email = service.EmailFromToken(token);
@@ -143,9 +160,26 @@ public class UserController {
             }
             return new ResponseEntity<>(existUser.get(), HttpStatus.OK);
         } catch (Exception e) {
-                throw new RuntimeException(e);
+            throw new RuntimeException(e);
         }
     }
+
+    @DeleteMapping("/{id}/user-delete")
+    public ResponseEntity<?> deleteUser(@RequestHeader("Authorization") String authHeader, @PathVariable("id") UUID userId) {
+        String token = authorization.token(authHeader);
+        String email = service.EmailFromToken(token);
+        Optional<Users> existUser = repo.existByEmail(email);
+        if (existUser.isEmpty()) {
+            return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
+        }
+        if (existUser.get().getId().equals(userId)) {
+            repo.deleteById(userId);
+            return new ResponseEntity<>("User delete success..", HttpStatus.ACCEPTED);
+        } else {
+            return new ResponseEntity<>("User are not allow to delete..", HttpStatus.NOT_ACCEPTABLE);
+        }
+    }
+
 
     @PostMapping("/{id}/upload-profile")
     public ResponseEntity<?> uploadProfileImage(
