@@ -56,14 +56,22 @@ public class UserService {
 
     /**
      * Extract email from JWT token
+     * FIXED: Renamed from getEmailFromToken to EmailFromToken to match UserController usage
      */
-    public String getEmailFromToken(String token) {
+    public String EmailFromToken(String token) {
         try {
             return jwtService.extractUsername(token);
         } catch (Exception e) {
             logger.error("Error extracting email from token: {}", e.getMessage());
-            return null;
+            throw new RuntimeException("Invalid or expired token");
         }
+    }
+
+    /**
+     * Extract email from JWT token (alternative method name for clarity)
+     */
+    public String getEmailFromToken(String token) {
+        return EmailFromToken(token);
     }
 
     /**

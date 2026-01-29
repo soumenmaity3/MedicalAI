@@ -21,23 +21,23 @@ public class CusUserDetailsService implements UserDetailsService {
     private UserRepository userRepository;
 
     @Override
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        Users user = userRepository.findByEmail(email);
+    public UserDetails loadUserByUsername(String email)
+            throws UsernameNotFoundException {
 
-        if (user == null) {
-            throw new UsernameNotFoundException("User not found with email: " + email);
-        }
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new UsernameNotFoundException(
+                                "User not found with email: " + email
+                        )
+                );
 
-        return User.builder()
-                .username(user.getEmail())
-                .password(user.getPassword())
-                .authorities(getAuthorities(user))
-                .accountExpired(false)
-                .accountLocked(false)
-                .credentialsExpired(false)
-                .disabled(false)
-                .build();
+        return new org.springframework.security.core.userdetails.User(
+                user.getEmail(),       // IMPORTANT
+                user.getPassword(),    // MUST be encoded
+                Collections.emptyList()
+        );
     }
+
 
     /**
      * Get user authorities/roles

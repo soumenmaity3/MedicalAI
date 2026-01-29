@@ -22,6 +22,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -116,67 +117,102 @@ public class UserController {
                     .body("Password is required");
         }
 
-        // 🔴 Authenticate using Spring Security
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        login.getEmail(),
-                        login.getPassword()
-                )
-        );
+        try {
+            // Authenticate using Spring Security
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            login.getEmail(),
+                            login.getPassword()
+                    )
+            );
 
-        // ✅ If authentication fails → exception thrown automatically
+            // Generate token ONLY after authentication
+            String token = jwtService.generateToken(login.getEmail());
 
-        // ✅ Generate token ONLY after authentication
-        String token = jwtService.generateToken(login.getEmail());
-
-        return ResponseEntity.ok(token);
+            return ResponseEntity.ok(token);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Invalid email or password");
+        }
     }
 
     @GetMapping("/me/{id}")
-    private ResponseEntity<?> myDetails(@RequestHeader("Authorization") String authHeader, @PathVariable(value = "id",required = false) UUID userId) {
-        String token = authorization.token(authHeader);
+    private ResponseEntity<?> myDetails(@RequestHeader("Authorization") String authHeader, @PathVariable("id") UUID userId) {
         try {
+            String token = authorization.token(authHeader);
+
+            // Check if token extraction failed
+            if (token.startsWith("Missing") || token.startsWith("Invalid")) {
+                return new ResponseEntity<>(token, HttpStatus.UNAUTHORIZED);
+            }
+
             String email = service.EmailFromToken(token);
             Optional<Users> existUser = repo.existByEmail(email);
+
             if (existUser.isEmpty()) {
                 return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
-            } else if (existUser.get().getId().equals(userId)) {
-                return new ResponseEntity<>("User not found..",HttpStatus.NOT_FOUND);
             }
+
+            // FIXED: This was checking if IDs are equal and returning NOT_FOUND
+            // Should check if IDs are NOT equal
+            if (!existUser.get().getId().equals(userId)) {
+                return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
+            }
+
             return new ResponseEntity<>(existUser.get(), HttpStatus.OK);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            return new ResponseEntity<>("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     @GetMapping("/me")
     private ResponseEntity<?> myDetails(@RequestHeader("Authorization") String authHeader) {
-        String token = authorization.token(authHeader);
         try {
+            String token = authorization.token(authHeader);
+
+            // Check if token extraction failed
+            if (token.startsWith("Missing") || token.startsWith("Invalid")) {
+                return new ResponseEntity<>(token, HttpStatus.UNAUTHORIZED);
+            }
+
             String email = service.EmailFromToken(token);
             Optional<Users> existUser = repo.existByEmail(email);
+
             if (existUser.isEmpty()) {
                 return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
             }
+
             return new ResponseEntity<>(existUser.get(), HttpStatus.OK);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            return new ResponseEntity<>("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     @DeleteMapping("/{id}/user-delete")
     public ResponseEntity<?> deleteUser(@RequestHeader("Authorization") String authHeader, @PathVariable("id") UUID userId) {
-        String token = authorization.token(authHeader);
-        String email = service.EmailFromToken(token);
-        Optional<Users> existUser = repo.existByEmail(email);
-        if (existUser.isEmpty()) {
-            return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
-        }
-        if (existUser.get().getId().equals(userId)) {
-            repo.deleteById(userId);
-            return new ResponseEntity<>("User delete success..", HttpStatus.ACCEPTED);
-        } else {
-            return new ResponseEntity<>("User are not allow to delete..", HttpStatus.NOT_ACCEPTABLE);
+        try {
+            String token = authorization.token(authHeader);
+
+            // Check if token extraction failed
+            if (token.startsWith("Missing") || token.startsWith("Invalid")) {
+                return new ResponseEntity<>(token, HttpStatus.UNAUTHORIZED);
+            }
+
+            String email = service.EmailFromToken(token);
+            Optional<Users> existUser = repo.existByEmail(email);
+
+            if (existUser.isEmpty()) {
+                return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
+            }
+
+            if (existUser.get().getId().equals(userId)) {
+                repo.deleteById(userId);
+                return new ResponseEntity<>("User delete success..", HttpStatus.ACCEPTED);
+            } else {
+                return new ResponseEntity<>("User are not allow to delete..", HttpStatus.NOT_ACCEPTABLE);
+            }
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -185,44 +221,97 @@ public class UserController {
     public ResponseEntity<?> uploadProfileImage(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam("file") MultipartFile file
-    ) throws Exception {
+    ) {
+        try {
+            String token = authorization.token(authHeader);
 
-        String token = authorization.token(authHeader);
-        String email = service.EmailFromToken(token);
+            // Check if token extraction failed
+            if (token.startsWith("Missing") || token.startsWith("Invalid")) {
+                return new ResponseEntity<>(token, HttpStatus.UNAUTHORIZED);
+            }
 
-        Users existingUser = repo.existByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+            String email = service.EmailFromToken(token);
 
-        Path uploadPath = Paths.get("profile_images");
-        Files.createDirectories(uploadPath);
+            Users existingUser = repo.existByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-        String fileName = existingUser.getEmail() + ".enc";
-        Path filePath = uploadPath.resolve(fileName);
+            Path uploadPath = Paths.get("profile_images");
+            Files.createDirectories(uploadPath);
 
-        byte[] encryptedBytes = encryptionUtil.encrypt(file.getBytes());
-        Files.write(filePath, encryptedBytes);
+            String fileName = existingUser.getEmail() + ".enc";
+            Path filePath = uploadPath.resolve(fileName);
 
-        existingUser.setProfileImage(fileName);
-        repo.save(existingUser);
+            byte[] encryptedBytes = encryptionUtil.encrypt(file.getBytes());
+            Files.write(filePath, encryptedBytes);
 
-        return ResponseEntity.ok("Encrypted profile image uploaded");
+            existingUser.setProfileImage(fileName);
+            repo.save(existingUser);
+
+            return ResponseEntity.ok("Encrypted profile image uploaded");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error uploading profile image: " + e.getMessage());
+        }
     }
 
-    @GetMapping("/profile-image/{id}")
-    public ResponseEntity<byte[]> getProfileImage(@PathVariable UUID id) throws Exception {
+    @GetMapping("/profile-image/me")
+    public ResponseEntity<?> getMyProfileImage(
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        try {
+            // 🔐 1. Extract & validate token
+            String token = authorization.token(authHeader);
 
-        Users user = repo.findById(id).orElseThrow();
+            if (token.startsWith("Missing") || token.startsWith("Invalid")) {
+                return ResponseEntity
+                        .status(HttpStatus.UNAUTHORIZED)
+                        .body("Invalid or missing token");
+            }
 
-        Path path = Paths.get("profile_images").resolve(user.getProfileImage());
-        byte[] encrypted = Files.readAllBytes(path);
+            // 🔐 2. Identify user from token
+            String email = service.EmailFromToken(token);
 
-        byte[] decrypted = encryptionUtil.decrypt(encrypted);
+            Users user = repo.existByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-        return ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_JPEG)
-                .body(decrypted);
+            if (user.getProfileImage() == null) {
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body("No profile image");
+            }
+
+            // 📁 3. Resolve file safely
+            Path imagePath = Paths.get("profile_images")
+                    .resolve(user.getProfileImage())
+                    .normalize()
+                    .toAbsolutePath();
+
+            if (!Files.exists(imagePath)) {
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body("Image file not found");
+            }
+
+            // 🔐 4. Decrypt image
+            byte[] encryptedBytes = Files.readAllBytes(imagePath);
+            byte[] decryptedBytes = encryptionUtil.decrypt(encryptedBytes);
+
+            // 🖼️ 5. Detect content type
+            String contentType = Files.probeContentType(imagePath);
+            MediaType mediaType = contentType != null
+                    ? MediaType.parseMediaType(contentType)
+                    : MediaType.APPLICATION_OCTET_STREAM;
+
+            return ResponseEntity
+                    .ok()
+                    .contentType(mediaType)
+                    .body(decryptedBytes);
+
+        } catch (Exception e) {
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to load profile image");
+        }
     }
 
 }
-//http://localhost:8080/api/users/{id}/upload-profile - return this for upload
-//String imageUrl = "http://localhost:8080/uploads/" + user.getProfileImage(); - return images
