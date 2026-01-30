@@ -1,5 +1,7 @@
 package com.soumen.MedicalAI.Model;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
@@ -53,7 +55,7 @@ public class Users {
     private String allergies;
     private String pastSurgeries;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.BINARY)
     @Column(nullable = true, columnDefinition = "BYTEA")
     private byte[] profileImage;
 }
