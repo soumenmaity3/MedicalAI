@@ -51,7 +51,7 @@ public class Users {
     private Diet diet;
 
     private String allergies;
-    private String past_surgeries;
+    private String pastSurgeries;
 
     @Column(nullable = true)
     private String profileImage;

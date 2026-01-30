@@ -55,7 +55,7 @@ public class UserDTO {
         dto.setExercise(user.getExercise() != null ? user.getExercise().toString() : null);
         dto.setDiet(user.getDiet() != null ? user.getDiet().toString() : null);
         dto.setAllergies(user.getAllergies());
-        dto.setPastSurgeries(user.getPast_surgeries());
+        dto.setPastSurgeries(user.getPastSurgeries());
         dto.setProfileImage(user.getProfileImage());
 
         return dto;
