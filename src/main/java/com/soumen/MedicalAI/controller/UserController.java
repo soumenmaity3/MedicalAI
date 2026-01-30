@@ -65,56 +65,122 @@ public class UserController {
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody Users user) {
 
+        // Validate email
         String email = user.getEmail();
         if (email == null || email.isBlank()) {
-            return new ResponseEntity<>("Email is required..", HttpStatus.NOT_ACCEPTABLE);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new HashMap<String, String>() {
+                        {
+                            put("error", "Email is required");
+                        }
+                    });
         }
 
-        Optional<Users> userEmail = repo.existByEmail(email);
-        if (userEmail.isPresent()) {
-            return new ResponseEntity<>("User Already Exist. Please Login..", HttpStatus.CONFLICT);
+        // Check if user already exists
+        if (repo.existsByEmail(email)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new HashMap<String, String>() {
+                        {
+                            put("error", "User already exists. Please login.");
+                        }
+                    });
         }
 
+        // Validate password
         String password = user.getPassword();
         if (password == null || password.isBlank()) {
-            return new ResponseEntity<>("Password is required..", HttpStatus.NOT_ACCEPTABLE);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new HashMap<String, String>() {
+                        {
+                            put("error", "Password is required");
+                        }
+                    });
         }
 
+        // Validate password strength
+        String passwordError = com.soumen.MedicalAI.utils.PasswordValidator.validate(password);
+        if (passwordError != null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new HashMap<String, String>() {
+                        {
+                            put("error", passwordError);
+                        }
+                    });
+        }
+
+        // Validate name
         String name = user.getName();
         if (name == null || name.isBlank()) {
-            return new ResponseEntity<>("Name is required..", HttpStatus.NOT_ACCEPTABLE);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new HashMap<String, String>() {
+                        {
+                            put("error", "Name is required");
+                        }
+                    });
         }
 
-        Users newUser = new Users();
-        newUser.setEmail(user.getEmail());
-        newUser.setPassword(encoder.encode(user.getPassword()));
-        newUser.setName(user.getName());
-        System.out.printf(user.getPassword());
-        System.out.printf(user.getEmail());
+        try {
+            // Create new user
+            Users newUser = new Users();
+            newUser.setEmail(user.getEmail());
+            newUser.setPassword(encoder.encode(user.getPassword()));
+            newUser.setName(user.getName());
 
-        Users saveUser = repo.save(newUser);
+            // Save user to database
+            Users savedUser = repo.save(newUser);
 
-        String token = jwtService.generateToken(user.getEmail());
+            // ✅ PROPERLY authenticate the user after signup
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            user.getEmail(),
+                            user.getPassword() // Use original plain text password
+                    ));
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("user", saveUser);
-        response.put("token", token);
+            // Generate tokens AFTER successful authentication
+            String token = jwtService.generateToken(user.getEmail());
+            String refreshToken = jwtService.generateRefreshToken(user.getEmail());
 
+            // Create response with user data (without password)
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "User created and logged in successfully");
+            response.put("user", com.soumen.MedicalAI.dto.UserDTO.from(savedUser));
+            response.put("token", token);
+            response.put("refreshToken", refreshToken);
+            response.put("expiresIn", 86400000);
 
-        return new ResponseEntity<>(response, HttpStatus.OK);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new HashMap<String, String>() {
+                        {
+                            put("error", "An error occurred during signup: " + e.getMessage());
+                        }
+                    });
+        }
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody LoginUser login) {
 
+        // Validate email
         if (login.getEmail() == null || login.getEmail().isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Email is required");
+                    .body(new HashMap<String, String>() {
+                        {
+                            put("error", "Email is required");
+                        }
+                    });
         }
 
+        // Validate password
         if (login.getPassword() == null || login.getPassword().isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Password is required");
+                    .body(new HashMap<String, String>() {
+                        {
+                            put("error", "Password is required");
+                        }
+                    });
         }
 
         try {
@@ -122,22 +188,53 @@ public class UserController {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             login.getEmail(),
-                            login.getPassword()
-                    )
-            );
+                            login.getPassword()));
 
-            // Generate token ONLY after authentication
+            // Get user details
+            Users user = repo.findByEmail(login.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            // Generate tokens
             String token = jwtService.generateToken(login.getEmail());
+            String refreshToken = jwtService.generateRefreshToken(login.getEmail());
 
-            return ResponseEntity.ok(token);
-        } catch (Exception e) {
+            // Create standardized response
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Login successful");
+            response.put("user", com.soumen.MedicalAI.dto.UserDTO.from(user));
+            response.put("token", token);
+            response.put("refreshToken", refreshToken);
+            response.put("expiresIn", 86400000);
+
+            return ResponseEntity.ok(response);
+
+        } catch (org.springframework.security.authentication.BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body("Invalid email or password");
+                    .body(new HashMap<String, String>() {
+                        {
+                            put("error", "Invalid email or password");
+                        }
+                    });
+        } catch (org.springframework.security.authentication.DisabledException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new HashMap<String, String>() {
+                        {
+                            put("error", "Account is disabled");
+                        }
+                    });
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new HashMap<String, String>() {
+                        {
+                            put("error", "An error occurred during login");
+                        }
+                    });
         }
     }
 
     @GetMapping("/me/{id}")
-    private ResponseEntity<?> myDetails(@RequestHeader("Authorization") String authHeader, @PathVariable("id") UUID userId) {
+    private ResponseEntity<?> myDetails(@RequestHeader("Authorization") String authHeader,
+            @PathVariable("id") UUID userId) {
         try {
             String token = authorization.token(authHeader);
 
@@ -147,7 +244,7 @@ public class UserController {
             }
 
             String email = service.EmailFromToken(token);
-            Optional<Users> existUser = repo.existByEmail(email);
+            Optional<Users> existUser = repo.findByEmail(email);
 
             if (existUser.isEmpty()) {
                 return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
@@ -161,7 +258,8 @@ public class UserController {
 
             return new ResponseEntity<>(existUser.get(), HttpStatus.OK);
         } catch (Exception e) {
-            return new ResponseEntity<>("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+            return new ResponseEntity<>("Error processing request: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -176,7 +274,7 @@ public class UserController {
             }
 
             String email = service.EmailFromToken(token);
-            Optional<Users> existUser = repo.existByEmail(email);
+            Optional<Users> existUser = repo.findByEmail(email);
 
             if (existUser.isEmpty()) {
                 return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
@@ -184,12 +282,14 @@ public class UserController {
 
             return new ResponseEntity<>(existUser.get(), HttpStatus.OK);
         } catch (Exception e) {
-            return new ResponseEntity<>("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+            return new ResponseEntity<>("Error processing request: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     @DeleteMapping("/{id}/user-delete")
-    public ResponseEntity<?> deleteUser(@RequestHeader("Authorization") String authHeader, @PathVariable("id") UUID userId) {
+    public ResponseEntity<?> deleteUser(@RequestHeader("Authorization") String authHeader,
+            @PathVariable("id") UUID userId) {
         try {
             String token = authorization.token(authHeader);
 
@@ -199,7 +299,7 @@ public class UserController {
             }
 
             String email = service.EmailFromToken(token);
-            Optional<Users> existUser = repo.existByEmail(email);
+            Optional<Users> existUser = repo.findByEmail(email);
 
             if (existUser.isEmpty()) {
                 return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
@@ -212,16 +312,15 @@ public class UserController {
                 return new ResponseEntity<>("User are not allow to delete..", HttpStatus.NOT_ACCEPTABLE);
             }
         } catch (Exception e) {
-            return new ResponseEntity<>("Error processing request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+            return new ResponseEntity<>("Error processing request: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
 
     @PostMapping("/{id}/upload-profile")
     public ResponseEntity<?> uploadProfileImage(
             @RequestHeader("Authorization") String authHeader,
-            @RequestParam("file") MultipartFile file
-    ) {
+            @RequestParam("file") MultipartFile file) {
         try {
             String token = authorization.token(authHeader);
 
@@ -232,7 +331,7 @@ public class UserController {
 
             String email = service.EmailFromToken(token);
 
-            Users existingUser = repo.existByEmail(email)
+            Users existingUser = repo.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             Path uploadPath = Paths.get("profile_images");
@@ -256,8 +355,7 @@ public class UserController {
 
     @GetMapping("/profile-image/me")
     public ResponseEntity<?> getMyProfileImage(
-            @RequestHeader("Authorization") String authHeader
-    ) {
+            @RequestHeader("Authorization") String authHeader) {
         try {
             // 🔐 1. Extract & validate token
             String token = authorization.token(authHeader);
@@ -271,7 +369,7 @@ public class UserController {
             // 🔐 2. Identify user from token
             String email = service.EmailFromToken(token);
 
-            Users user = repo.existByEmail(email)
+            Users user = repo.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             if (user.getProfileImage() == null) {
