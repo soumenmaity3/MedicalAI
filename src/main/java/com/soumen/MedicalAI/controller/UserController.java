@@ -129,16 +129,10 @@ public class UserController {
             // Save user to database
             Users savedUser = repo.save(newUser);
 
-            // ✅ PROPERLY authenticate the user after signup
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            user.getEmail(),
-                            user.getPassword() // Use original plain text password
-                    ));
-
-            // Generate tokens AFTER successful authentication
-            String token = jwtService.generateToken(user.getEmail());
-            String refreshToken = jwtService.generateRefreshToken(user.getEmail());
+            // ✅ Generate tokens directly (avoid transaction synchronization issues with
+            // authenticate())
+            String token = jwtService.generateToken(savedUser.getEmail());
+            String refreshToken = jwtService.generateRefreshToken(savedUser.getEmail());
 
             // Create response with user data (without password)
             Map<String, Object> response = new HashMap<>();
@@ -151,10 +145,11 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new HashMap<String, String>() {
                         {
-                            put("error", "An error occurred during signup: " + e.getMessage());
+                            put("error", "Signup error: " + e.getMessage());
                         }
                     });
         }
@@ -223,10 +218,11 @@ public class UserController {
                         }
                     });
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new HashMap<String, String>() {
                         {
-                            put("error", "An error occurred during login");
+                            put("error", "Login error: " + e.getMessage());
                         }
                     });
         }
