@@ -7,11 +7,7 @@ import com.soumen.MedicalAI.config.Authorization;
 import com.soumen.MedicalAI.config.FileEncryptionUtil;
 import com.soumen.MedicalAI.service.JWTService;
 import com.soumen.MedicalAI.service.UserService;
-import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -23,10 +19,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -333,19 +325,12 @@ public class UserController {
             Users existingUser = repo.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
-            Path uploadPath = Paths.get("profile_images");
-            Files.createDirectories(uploadPath);
-
-            String fileName = existingUser.getEmail() + ".enc";
-            Path filePath = uploadPath.resolve(fileName);
-
+            // 🔐 Encrypt image data and store directly in Database
             byte[] encryptedBytes = encryptionUtil.encrypt(file.getBytes());
-            Files.write(filePath, encryptedBytes);
-
-            existingUser.setProfileImage(fileName);
+            existingUser.setProfileImage(encryptedBytes);
             repo.save(existingUser);
 
-            return ResponseEntity.ok("Encrypted profile image uploaded");
+            return ResponseEntity.ok("Profile image uploaded to database successfully");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error uploading profile image: " + e.getMessage());
@@ -374,40 +359,22 @@ public class UserController {
             if (user.getProfileImage() == null) {
                 return ResponseEntity
                         .status(HttpStatus.NOT_FOUND)
-                        .body("No profile image");
+                        .body("No profile image found in database");
             }
 
-            // 📁 3. Resolve file safely
-            Path imagePath = Paths.get("profile_images")
-                    .resolve(user.getProfileImage())
-                    .normalize()
-                    .toAbsolutePath();
+            // 🔐 3. Decrypt image data from database
+            byte[] decryptedBytes = encryptionUtil.decrypt(user.getProfileImage());
 
-            if (!Files.exists(imagePath)) {
-                return ResponseEntity
-                        .status(HttpStatus.NOT_FOUND)
-                        .body("Image file not found");
-            }
-
-            // 🔐 4. Decrypt image
-            byte[] encryptedBytes = Files.readAllBytes(imagePath);
-            byte[] decryptedBytes = encryptionUtil.decrypt(encryptedBytes);
-
-            // 🖼️ 5. Detect content type
-            String contentType = Files.probeContentType(imagePath);
-            MediaType mediaType = contentType != null
-                    ? MediaType.parseMediaType(contentType)
-                    : MediaType.APPLICATION_OCTET_STREAM;
-
+            // 🖼️ 4. Return as image (default to jpeg as extension is lost)
             return ResponseEntity
                     .ok()
-                    .contentType(mediaType)
+                    .contentType(MediaType.IMAGE_JPEG)
                     .body(decryptedBytes);
 
         } catch (Exception e) {
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to load profile image");
+                    .body("Failed to load profile image from database: " + e.getMessage());
         }
     }
 

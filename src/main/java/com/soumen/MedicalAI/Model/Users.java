@@ -53,6 +53,7 @@ public class Users {
     private String allergies;
     private String pastSurgeries;
 
-    @Column(nullable = true)
-    private String profileImage;
+    @Lob
+    @Column(nullable = true, columnDefinition = "BYTEA")
+    private byte[] profileImage;
 }
