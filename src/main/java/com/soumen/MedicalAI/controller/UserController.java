@@ -66,7 +66,9 @@ public class UserController {
     public ResponseEntity<?> signup(@RequestBody Users user) {
 
         // Validate email
-        String email = user.getEmail();
+        String email = user.getEmail() != null ? user.getEmail().trim() : null;
+        System.out.println("Processing signup for email: [" + email + "]"); // Debug log
+
         if (email == null || email.isBlank()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new HashMap<String, String>() {
@@ -78,6 +80,7 @@ public class UserController {
 
         // Check if user already exists
         if (repo.existsByEmail(email)) {
+            System.out.println("Signup failed: User [" + email + "] already exists.");
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new HashMap<String, String>() {
                         {
