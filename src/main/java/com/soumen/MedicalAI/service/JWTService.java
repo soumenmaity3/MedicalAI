@@ -114,7 +114,13 @@ public class JWTService {
      * Get signing key from secret
      */
     private SecretKey getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
-        return Keys.hmacShaKeyFor(keyBytes);
+        try {
+            byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+            return Keys.hmacShaKeyFor(keyBytes);
+        } catch (Exception e) {
+            // Fallback to raw bytes if secret is not valid Base64
+            byte[] keyBytes = secretKey.getBytes();
+            return Keys.hmacShaKeyFor(keyBytes);
+        }
     }
 }

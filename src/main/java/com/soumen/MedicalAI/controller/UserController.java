@@ -223,11 +223,10 @@ public class UserController {
                         }
                     });
         } catch (Exception e) {
-            e.printStackTrace(); // Log the full stack trace to terminal
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new HashMap<String, String>() {
                         {
-                            put("error", "An error occurred during login: " + e.getMessage());
+                            put("error", "An error occurred during login");
                         }
                     });
         }
