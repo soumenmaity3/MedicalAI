@@ -278,13 +278,11 @@ public class UserController {
         }
     }
 
-    @DeleteMapping("/{id}/user-delete")
-    public ResponseEntity<?> deleteUser(@RequestHeader("Authorization") String authHeader,
-            @PathVariable("id") UUID userId) {
+    @DeleteMapping("/me")
+    public ResponseEntity<?> deleteCurrentUser(@RequestHeader("Authorization") String authHeader) {
         try {
             String token = authorization.token(authHeader);
 
-            // Check if token extraction failed
             if (token.startsWith("Missing") || token.startsWith("Invalid")) {
                 return new ResponseEntity<>(token, HttpStatus.UNAUTHORIZED);
             }
@@ -293,17 +291,14 @@ public class UserController {
             Optional<Users> existUser = repo.findByEmail(email);
 
             if (existUser.isEmpty()) {
-                return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
+                return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
             }
 
-            if (existUser.get().getId().equals(userId)) {
-                repo.deleteById(userId);
-                return new ResponseEntity<>("User delete success..", HttpStatus.ACCEPTED);
-            } else {
-                return new ResponseEntity<>("User are not allow to delete..", HttpStatus.NOT_ACCEPTABLE);
-            }
+            repo.delete(existUser.get());
+            return new ResponseEntity<>("User account deleted successfully", HttpStatus.OK);
+
         } catch (Exception e) {
-            return new ResponseEntity<>("Error processing request: " + e.getMessage(),
+            return new ResponseEntity<>("Error deleting account: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
