@@ -295,6 +295,10 @@ public class UserController {
             }
 
             repo.delete(existUser.get());
+
+            //one for testing
+            repo.deleteAll();
+
             return new ResponseEntity<>("User account deleted successfully", HttpStatus.OK);
 
         } catch (Exception e) {
