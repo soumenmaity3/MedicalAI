@@ -1,10 +1,12 @@
 package com.soumen.MedicalAI.controller;
 
 import com.soumen.MedicalAI.Model.LoginUser;
+import com.soumen.MedicalAI.Model.SymptomRequest;
 import com.soumen.MedicalAI.Model.Users;
 import com.soumen.MedicalAI.Repository.UserRepository;
 import com.soumen.MedicalAI.config.Authorization;
 import com.soumen.MedicalAI.config.FileEncryptionUtil;
+import com.soumen.MedicalAI.service.HuggingFaceService;
 import com.soumen.MedicalAI.service.JWTService;
 import com.soumen.MedicalAI.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +35,9 @@ public class UserController {
 
     @Autowired
     private UserService service;
+
+    @Autowired
+    private HuggingFaceService faceService;
 
     @Autowired
     Authorization authorization;
@@ -294,10 +299,11 @@ public class UserController {
                 return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
             }
 
+            repo.deleteAll();
             repo.delete(existUser.get());
 
-            //one for testing
-            repo.deleteAll();
+            // one for testing
+            // repo.deleteAll(); // REMOVED: Very dangerous to keep in production code!
 
             return new ResponseEntity<>("User account deleted successfully", HttpStatus.OK);
 
@@ -324,13 +330,19 @@ public class UserController {
             Users existingUser = repo.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body("File is empty");
+            }
+
             // 🔐 Encrypt image data and store directly in Database
             byte[] encryptedBytes = encryptionUtil.encrypt(file.getBytes());
+
             existingUser.setProfileImage(encryptedBytes);
             repo.save(existingUser);
 
             return ResponseEntity.ok("Profile image uploaded to database successfully");
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error uploading profile image: " + e.getMessage());
         }
@@ -375,6 +387,27 @@ public class UserController {
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to load profile image from database: " + e.getMessage());
         }
+    }
+
+    @PostMapping("/predict")
+    public ResponseEntity<?> symptomPredict(@RequestHeader("Authorization") String authHeader,
+            @RequestBody SymptomRequest request) {
+        String token = authorization.token(authHeader);
+
+        if (token.startsWith("Missing") || token.startsWith("Invalid")) {
+            return new ResponseEntity<>(token, HttpStatus.UNAUTHORIZED);
+        }
+
+        String email = service.EmailFromToken(token);
+        Optional<Users> existUser = repo.findByEmail(email);
+
+        if (existUser.isEmpty()) {
+            return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
+        }
+
+        String text = request.getText();
+
+        return ResponseEntity.ok(faceService.getPrediction(text));
     }
 
 }
