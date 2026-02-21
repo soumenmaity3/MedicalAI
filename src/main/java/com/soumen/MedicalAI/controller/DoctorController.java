@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/med/doc")
@@ -136,7 +137,12 @@ public class DoctorController {
 
             Doctor saveDoctor = repo.save(doctor1);
 
-            String token = jwtService.generateToken(saveDoctor.getEmail());
+            // Create claims for JWT
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("role", "ROLE_DOCTOR");
+            claims.put("userId", saveDoctor.getId().toString());
+
+            String token = jwtService.generateToken(claims, saveDoctor.getEmail());
             String refreshToken = jwtService.generateRefreshToken(saveDoctor.getEmail());
 
             Map<String, Object> response = new HashMap<>();
@@ -188,9 +194,25 @@ public class DoctorController {
                             normalizedEmail,
                             doctor.getPassword()));
 
-            Doctor doctor1 = repo.findByEmailIgnoreCase(normalizedEmail)
-                    .orElseThrow(() -> new RuntimeException("User not found after authentication."));
-            String token = jwtService.generateToken(doctor1.getEmail());
+            // Safety check: Ensure the authenticated user is actually a Doctor
+            Optional<Doctor> doctorOpt = repo.findByEmailIgnoreCase(normalizedEmail);
+            if (doctorOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new HashMap<String, String>() {
+                            {
+                                put("error", "Access denied: This account is not registered as a Doctor.");
+                            }
+                        });
+            }
+
+            Doctor doctor1 = doctorOpt.get();
+
+            // Create claims for JWT
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("role", "ROLE_DOCTOR");
+            claims.put("userId", doctor1.getId().toString());
+
+            String token = jwtService.generateToken(claims, doctor1.getEmail());
             String refreshToken = jwtService.generateRefreshToken(doctor1.getEmail());
 
             Map<String, Object> response = new HashMap<>();

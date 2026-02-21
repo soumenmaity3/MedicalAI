@@ -136,9 +136,13 @@ public class UserController {
             // Save user to database
             Users savedUser = repo.save(newUser);
 
-            // ✅ Generate tokens directly (avoid transaction synchronization issues with
-            // authenticate())
-            String token = jwtService.generateToken(savedUser.getEmail());
+            // Create claims for JWT
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("role", "ROLE_USER");
+            claims.put("userId", savedUser.getId().toString());
+
+            // ✅ Generate tokens directly using normalized email from the saved user
+            String token = jwtService.generateToken(claims, savedUser.getEmail());
             String refreshToken = jwtService.generateRefreshToken(savedUser.getEmail());
 
             // Create response with user data (without password)
@@ -195,12 +199,26 @@ public class UserController {
                             login.getPassword()));
 
             // Get user details
-            Users user = repo.findByEmailIgnoreCase(normalizedEmail)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+            Optional<Users> userOpt = repo.findByEmailIgnoreCase(normalizedEmail);
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new HashMap<String, String>() {
+                            {
+                                put("error", "Access denied: This account is not registered as a Patient.");
+                            }
+                        });
+            }
 
-            // Generate tokens
-            String token = jwtService.generateToken(login.getEmail());
-            String refreshToken = jwtService.generateRefreshToken(login.getEmail());
+            Users user = userOpt.get();
+
+            // Create claims for JWT
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("role", "ROLE_USER");
+            claims.put("userId", user.getId().toString());
+
+            // Generate tokens using normalized email
+            String token = jwtService.generateToken(claims, user.getEmail());
+            String refreshToken = jwtService.generateRefreshToken(user.getEmail());
 
             // Create standardized response
             Map<String, Object> response = new HashMap<>();
