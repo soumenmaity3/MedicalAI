@@ -1,4 +1,4 @@
-package com.soumen.MedicalAI.Model;
+package com.soumen.MedicalAI.Model.users;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

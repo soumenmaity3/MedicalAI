@@ -1,4 +1,4 @@
-package com.soumen.MedicalAI.Model;
+package com.soumen.MedicalAI.Model.symptoms;
 
 public class SymptomRequest {
     private  String text;

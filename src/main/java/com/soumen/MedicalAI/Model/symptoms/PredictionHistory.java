@@ -1,4 +1,4 @@
-package com.soumen.MedicalAI.Model;
+package com.soumen.MedicalAI.Model.symptoms;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

@@ -1,4 +1,4 @@
-package com.soumen.MedicalAI.Model;
+package com.soumen.MedicalAI.Model.users;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;

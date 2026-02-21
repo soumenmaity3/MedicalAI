@@ -107,7 +107,10 @@ public class JWTFilter extends OncePerRequestFilter {
         return path.equals("/api/med/user/signup") ||
                 path.equals("/api/med/user/login") ||
                 path.equals("/api/med/user/on-off") ||
-                path.equals("/error");
+                path.equals("/error")||
+                path.equals("/api/med/doc/signup")||
+                path.equals("/api/med/doc/login")||
+                path.equals("/api/med/doc/on-off");
     }
 
     private void sendErrorResponse(HttpServletResponse response, String message, int status) throws IOException {

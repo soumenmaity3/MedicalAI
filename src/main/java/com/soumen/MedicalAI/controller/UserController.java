@@ -1,26 +1,30 @@
 package com.soumen.MedicalAI.controller;
 
-import com.soumen.MedicalAI.Model.LoginUser;
-import com.soumen.MedicalAI.Model.SymptomRequest;
-import com.soumen.MedicalAI.Model.Users;
+import com.soumen.MedicalAI.Model.users.LoginUser;
+import com.soumen.MedicalAI.Model.symptoms.SymptomRequest;
+import com.soumen.MedicalAI.Model.users.Users;
 import com.soumen.MedicalAI.Repository.UserRepository;
+import com.soumen.MedicalAI.Repository.doctor.DoctorRepo;
 import com.soumen.MedicalAI.config.Authorization;
 import com.soumen.MedicalAI.config.FileEncryptionUtil;
+import com.soumen.MedicalAI.dto.UserDTO;
 import com.soumen.MedicalAI.service.HuggingFaceService;
 import com.soumen.MedicalAI.service.JWTService;
 import com.soumen.MedicalAI.service.UserService;
+import com.soumen.MedicalAI.utils.PasswordValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -40,10 +44,13 @@ public class UserController {
     private HuggingFaceService faceService;
 
     @Autowired
+    private DoctorRepo doctorRepo;
+
+    @Autowired
     Authorization authorization;
 
     @Autowired
-    private BCryptPasswordEncoder encoder;
+    private PasswordEncoder encoder;
 
     @Autowired
     JWTService jwtService;
@@ -63,7 +70,7 @@ public class UserController {
     public ResponseEntity<?> signup(@RequestBody Users user) {
 
         // Validate email
-        String email = user.getEmail() != null ? user.getEmail().trim() : null;
+        String email = user.getEmail() != null ? user.getEmail().trim().toLowerCase() : null;
         System.out.println("Processing signup for email: [" + email + "]"); // Debug log
 
         if (email == null || email.isBlank()) {
@@ -75,13 +82,13 @@ public class UserController {
                     });
         }
 
-        // Check if user already exists
-        if (repo.existsByEmail(email)) {
-            System.out.println("Signup failed: User [" + email + "] already exists.");
+        // Check if user already exists in either table
+        if (repo.existsByEmailIgnoreCase(email) || doctorRepo.existsByEmailIgnoreCase(email)) {
+            System.out.println("Signup failed: Email [" + email + "] is already registered.");
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new HashMap<String, String>() {
                         {
-                            put("error", "User already exists. Please login.");
+                            put("error", "Email is already registered. Please login or use a different email.");
                         }
                     });
         }
@@ -98,7 +105,7 @@ public class UserController {
         }
 
         // Validate password strength
-        String passwordError = com.soumen.MedicalAI.utils.PasswordValidator.validate(password);
+        String passwordError = PasswordValidator.validate(password);
         if (passwordError != null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new HashMap<String, String>() {
@@ -122,7 +129,7 @@ public class UserController {
         try {
             // Create new user
             Users newUser = new Users();
-            newUser.setEmail(user.getEmail());
+            newUser.setEmail(email);
             newUser.setPassword(encoder.encode(user.getPassword()));
             newUser.setName(user.getName());
 
@@ -137,7 +144,7 @@ public class UserController {
             // Create response with user data (without password)
             Map<String, Object> response = new HashMap<>();
             response.put("message", "User created and logged in successfully");
-            response.put("user", com.soumen.MedicalAI.dto.UserDTO.from(savedUser));
+            response.put("user", UserDTO.from(savedUser));
             response.put("token", token);
             response.put("refreshToken", refreshToken);
             response.put("expiresIn", 86400000);
@@ -159,7 +166,8 @@ public class UserController {
     public ResponseEntity<?> loginUser(@RequestBody LoginUser login) {
 
         // Validate email
-        if (login.getEmail() == null || login.getEmail().isEmpty()) {
+        String email = login.getEmail();
+        if (email == null || email.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new HashMap<String, String>() {
                         {
@@ -178,15 +186,16 @@ public class UserController {
                     });
         }
 
+        String normalizedEmail = email.trim().toLowerCase();
         try {
             // Authenticate using Spring Security
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            login.getEmail(),
+                            normalizedEmail,
                             login.getPassword()));
 
             // Get user details
-            Users user = repo.findByEmail(login.getEmail())
+            Users user = repo.findByEmailIgnoreCase(normalizedEmail)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Generate tokens
@@ -196,21 +205,21 @@ public class UserController {
             // Create standardized response
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Login successful");
-            response.put("user", com.soumen.MedicalAI.dto.UserDTO.from(user));
+            response.put("user", UserDTO.from(user));
             response.put("token", token);
             response.put("refreshToken", refreshToken);
             response.put("expiresIn", 86400000);
 
             return ResponseEntity.ok(response);
 
-        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+        } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new HashMap<String, String>() {
                         {
                             put("error", "Invalid email or password");
                         }
                     });
-        } catch (org.springframework.security.authentication.DisabledException e) {
+        } catch (DisabledException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(new HashMap<String, String>() {
                         {
@@ -240,7 +249,7 @@ public class UserController {
             }
 
             String email = service.EmailFromToken(token);
-            Optional<Users> existUser = repo.findByEmail(email);
+            Optional<Users> existUser = repo.findByEmailIgnoreCase(email);
 
             if (existUser.isEmpty()) {
                 return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
@@ -270,7 +279,7 @@ public class UserController {
             }
 
             String email = service.EmailFromToken(token);
-            Optional<Users> existUser = repo.findByEmail(email);
+            Optional<Users> existUser = repo.findByEmailIgnoreCase(email);
 
             if (existUser.isEmpty()) {
                 return new ResponseEntity<>("User not found..", HttpStatus.NOT_FOUND);
@@ -293,17 +302,13 @@ public class UserController {
             }
 
             String email = service.EmailFromToken(token);
-            Optional<Users> existUser = repo.findByEmail(email);
+            Optional<Users> existUser = repo.findByEmailIgnoreCase(email);
 
             if (existUser.isEmpty()) {
                 return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
             }
 
-            repo.deleteAll();
             repo.delete(existUser.get());
-
-            // one for testing
-            // repo.deleteAll(); // REMOVED: Very dangerous to keep in production code!
 
             return new ResponseEntity<>("User account deleted successfully", HttpStatus.OK);
 
@@ -327,7 +332,7 @@ public class UserController {
 
             String email = service.EmailFromToken(token);
 
-            Users existingUser = repo.findByEmail(email)
+            Users existingUser = repo.findByEmailIgnoreCase(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             if (file.isEmpty()) {
@@ -364,7 +369,7 @@ public class UserController {
             // 🔐 2. Identify user from token
             String email = service.EmailFromToken(token);
 
-            Users user = repo.findByEmail(email)
+            Users user = repo.findByEmailIgnoreCase(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             if (user.getProfileImage() == null) {
@@ -399,7 +404,7 @@ public class UserController {
         }
 
         String email = service.EmailFromToken(token);
-        Optional<Users> existUser = repo.findByEmail(email);
+        Optional<Users> existUser = repo.findByEmailIgnoreCase(email);
 
         if (existUser.isEmpty()) {
             return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);

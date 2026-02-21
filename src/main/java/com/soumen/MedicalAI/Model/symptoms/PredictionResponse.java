@@ -1,4 +1,4 @@
-package com.soumen.MedicalAI.Model;
+package com.soumen.MedicalAI.Model.symptoms;
 
 import java.util.List;
 

@@ -1,6 +1,6 @@
 package com.soumen.MedicalAI.dto;
 
-import com.soumen.MedicalAI.Model.Users;
+import com.soumen.MedicalAI.Model.users.Users;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

@@ -1,8 +1,8 @@
 package com.soumen.MedicalAI.service;
 
-import com.soumen.MedicalAI.Model.PredictionHistory;
-import com.soumen.MedicalAI.Model.PredictionResponse;
-import com.soumen.MedicalAI.Model.SymptomRequest;
+import com.soumen.MedicalAI.Model.symptoms.PredictionHistory;
+import com.soumen.MedicalAI.Model.symptoms.PredictionResponse;
+import com.soumen.MedicalAI.Model.symptoms.SymptomRequest;
 import com.soumen.MedicalAI.Repository.PredictionHistoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -12,9 +12,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
-
-import java.net.http.*;
 
 @Service
 public class HuggingFaceService {
