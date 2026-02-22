@@ -14,7 +14,10 @@ public class PredictionHistory {
     private String dep;
     private double confidence;
 
-    public PredictionHistory( String text, String dep, double confidence) {
+    public PredictionHistory() {
+    }
+
+    public PredictionHistory(String text, String dep, double confidence) {
         this.text = text;
         this.dep = dep;
         this.confidence = confidence;
