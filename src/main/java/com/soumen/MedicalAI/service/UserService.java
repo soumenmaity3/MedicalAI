@@ -22,9 +22,7 @@ public class UserService {
     @Autowired
     private AuthenticationManager authenticationManager;
 
-    /**
-     * Verify user credentials and generate JWT token
-     */
+
     public String verify(String email, String password) {
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -54,10 +52,7 @@ public class UserService {
         }
     }
 
-    /**
-     * Extract email from JWT token
-     * FIXED: Renamed from getEmailFromToken to EmailFromToken to match UserController usage
-     */
+
     public String EmailFromToken(String token) {
         try {
             return jwtService.extractUsername(token);
@@ -67,23 +62,17 @@ public class UserService {
         }
     }
 
-    /**
-     * Extract email from JWT token (alternative method name for clarity)
-     */
+
     public String getEmailFromToken(String token) {
         return EmailFromToken(token);
     }
 
-    /**
-     * Generate refresh token
-     */
+
     public String generateRefreshToken(String email) {
         return jwtService.generateRefreshToken(email);
     }
 
-    /**
-     * Validate token
-     */
+
     public boolean validateToken(String token) {
         try {
             String email = jwtService.extractUsername(token);

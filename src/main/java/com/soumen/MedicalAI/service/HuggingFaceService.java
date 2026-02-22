@@ -12,45 +12,65 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import java.util.Set;
 
 @Service
 public class HuggingFaceService {
 
-    @Autowired
-    private PredictionHistoryRepository repository;
+        @Autowired
+        private PredictionHistoryRepository repository;
 
-    private String HF_API_URL = "https://sm89-symptom2disease-api.hf.space/predict";
+        private String HF_API_URL = "https://sm89-symptom2disease-api.hf.space/predict";
 
-    public PredictionResponse getPrediction(String text){
-        RestTemplate restTemplate = new RestTemplate();
-        SymptomRequest request = new SymptomRequest(text);
+        private static final Set<String> MEDICAL_KEYWORDS = Set.of(
+                        "fever", "cough", "pain", "headache", "nausea", "vomiting", "fatigue", "dizziness",
+                        "shortness of breath", "chest pain", "abdominal pain", "diarrhea", "constipation",
+                        "rash", "swelling", "itching", "sore throat", "runny nose", "congestion",
+                        "muscle ache", "joint pain", "blurred vision", "seizure", "insomnia",
+                        "anxiety", "depression", "heart", "lung", "liver", "kidney", "stomach",
+                        "brain", "blood", "sugar", "pressure", "diabetes", "hypertension", "infection",
+                        "flu", "cold", "allergy", "asthma", "cancer", "tumor", "fracture", "injury",
+                        "symptom", "disease", "medicine", "treatment", "doctor", "hospital", "clinic");
 
-        HttpHeaders headers = new HttpHeaders();
+        public PredictionResponse getPrediction(String text) {
+                RestTemplate restTemplate = new RestTemplate();
+                SymptomRequest request = new SymptomRequest(text);
 
-        headers.setContentType(MediaType.APPLICATION_JSON);
+                HttpHeaders headers = new HttpHeaders();
 
-        HttpEntity<SymptomRequest> entity = new HttpEntity<>(request,headers);
-        ResponseEntity<PredictionResponse> response =
-                restTemplate.exchange(HF_API_URL,
-                        HttpMethod.POST,
-                        entity,
-                        PredictionResponse.class);
-        PredictionResponse prediction = response.getBody();
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-        // 🔥 Save to DB
-        if (prediction != null && prediction.getFinal_prediction() != null) {
+                HttpEntity<SymptomRequest> entity = new HttpEntity<>(request, headers);
+                ResponseEntity<PredictionResponse> response = restTemplate.exchange(HF_API_URL,
+                                HttpMethod.POST,
+                                entity,
+                                PredictionResponse.class);
+                PredictionResponse prediction = response.getBody();
 
-            String department =
-                    prediction.getFinal_prediction().getDepartment();
+                // 🔥 Save to DB only if it contains medical words
+                if (prediction != null && prediction.getFinal_prediction() != null) {
+                        if (containsMedicalWord(text)) {
+                                String department = prediction.getFinal_prediction().getDepartment();
+                                double confidence = prediction.getFinal_prediction().getConfidence();
 
-            double confidence =
-                    prediction.getFinal_prediction().getConfidence();
-
-            PredictionHistory history =
-                    new PredictionHistory(text, department, confidence);
-
-            repository.save(history);
+                                PredictionHistory history = new PredictionHistory(text, department, confidence);
+                                repository.save(history);
+                                System.out.println("History saved for: " + text);
+                        } else {
+                                System.out.println("History skipped (No medical words detected): " + text);
+                        }
+                }
+                return prediction;
         }
-        return prediction;
+
+        private boolean containsMedicalWord(String text) {
+                if (text == null || text.isBlank())
+                        return false;
+                String lowerText = text.toLowerCase();
+                return MEDICAL_KEYWORDS.stream().anyMatch(lowerText::contains);
+        }
+
+    public void deleteAll() {
+            repository.deleteAll();
     }
 }

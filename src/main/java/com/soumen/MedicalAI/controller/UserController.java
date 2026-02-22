@@ -193,7 +193,7 @@ public class UserController {
         String normalizedEmail = email.trim().toLowerCase();
         try {
             // Authenticate using Spring Security
-            Authentication authentication = authenticationManager.authenticate(
+            authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             normalizedEmail,
                             login.getPassword()));
@@ -431,6 +431,24 @@ public class UserController {
         String text = request.getText();
 
         return ResponseEntity.ok(faceService.getPrediction(text));
+    }
+
+    @DeleteMapping("deleteAll")
+    public ResponseEntity<?> deleteAll(@RequestHeader("Authorization") String authHeader){
+        String token = authorization.token(authHeader);
+
+        if (token.startsWith("Missing") || token.startsWith("Invalid")) {
+            return new ResponseEntity<>(token, HttpStatus.UNAUTHORIZED);
+        }
+
+        String email = service.EmailFromToken(token);
+        Optional<Users> existUser = repo.findByEmailIgnoreCase(email);
+
+        if (existUser.isEmpty()) {
+            return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
+        }
+        faceService.deleteAll();
+        return ResponseEntity.ok("Done");
     }
 
 }
