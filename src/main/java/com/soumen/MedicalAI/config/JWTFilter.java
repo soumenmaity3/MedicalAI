@@ -40,8 +40,8 @@ public class JWTFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
-                                    @NonNull HttpServletResponse response,
-                                    @NonNull FilterChain filterChain)
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
         // Skip JWT validation for public endpoints
@@ -67,12 +67,10 @@ public class JWTFilter extends OncePerRequestFilter {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
                 if (jwtService.validateToken(token, userDetails)) {
-                    UsernamePasswordAuthenticationToken authToken =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails,
-                                    null,
-                                    userDetails.getAuthorities()
-                            );
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities());
 
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
@@ -99,7 +97,7 @@ public class JWTFilter extends OncePerRequestFilter {
             sendErrorResponse(response, "User not found", HttpServletResponse.SC_UNAUTHORIZED);
         } catch (Exception e) {
             logger.error("JWT processing error: {}", e.getMessage(), e);
-            sendErrorResponse(response, "Authentication error", HttpServletResponse.SC_UNAUTHORIZED);
+            sendErrorResponse(response, "Authentication error: " + e.getMessage(), HttpServletResponse.SC_UNAUTHORIZED);
         }
     }
 
@@ -107,9 +105,9 @@ public class JWTFilter extends OncePerRequestFilter {
         return path.equals("/api/med/user/signup") ||
                 path.equals("/api/med/user/login") ||
                 path.equals("/api/med/user/on-off") ||
-                path.equals("/error")||
-                path.equals("/api/med/doc/signup")||
-                path.equals("/api/med/doc/login")||
+                path.equals("/error") ||
+                path.equals("/api/med/doc/signup") ||
+                path.equals("/api/med/doc/login") ||
                 path.equals("/api/med/doc/on-off");
     }
 

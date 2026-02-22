@@ -433,22 +433,90 @@ public class UserController {
         return ResponseEntity.ok(faceService.getPrediction(text));
     }
 
-    @DeleteMapping("deleteAll")
-    public ResponseEntity<?> deleteAll(@RequestHeader("Authorization") String authHeader){
-        String token = authorization.token(authHeader);
+    @DeleteMapping("/deleteAll")
+    public ResponseEntity<?> deleteAll(@RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authorization.token(authHeader);
 
-        if (token.startsWith("Missing") || token.startsWith("Invalid")) {
-            return new ResponseEntity<>(token, HttpStatus.UNAUTHORIZED);
+            if (token.startsWith("Missing") || token.startsWith("Invalid")) {
+                return new ResponseEntity<>(token, HttpStatus.UNAUTHORIZED);
+            }
+
+            String email = service.EmailFromToken(token);
+            // Check in both repositories to see if user exists
+            boolean userExists = repo.existsByEmailIgnoreCase(email) || doctorRepo.existsByEmailIgnoreCase(email);
+
+            if (!userExists) {
+                return new ResponseEntity<>("Authorized user not found in database", HttpStatus.NOT_FOUND);
+            }
+
+            faceService.deleteAll();
+            return ResponseEntity.ok(new HashMap<String, String>() {
+                {
+                    put("message", "All prediction history deleted successfully");
+                }
+            });
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error clearing history: " + e.getMessage());
         }
+    }
 
-        String email = service.EmailFromToken(token);
-        Optional<Users> existUser = repo.findByEmailIgnoreCase(email);
+    @PostMapping("/update-profile")
+    public ResponseEntity<?> updateProfile(@RequestHeader("Authorization") String authHeader,
+            @RequestBody Users userUpdate) {
+        try {
+            String token = authorization.token(authHeader);
 
-        if (existUser.isEmpty()) {
-            return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
+            if (token.startsWith("Missing") || token.startsWith("Invalid")) {
+                return new ResponseEntity<>(token, HttpStatus.UNAUTHORIZED);
+            }
+
+            String email = service.EmailFromToken(token);
+            Optional<Users> userOpt = repo.findByEmailIgnoreCase(email);
+
+            if (userOpt.isEmpty()) {
+                return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
+            }
+
+            Users existingUser = userOpt.get();
+
+            // Update only permitted fields
+            if (userUpdate.getName() != null)
+                existingUser.setName(userUpdate.getName());
+            if (userUpdate.getDob() != null)
+                existingUser.setDob(userUpdate.getDob());
+            if (userUpdate.getBlood() != null)
+                existingUser.setBlood(userUpdate.getBlood());
+            if (userUpdate.getGender() != null)
+                existingUser.setGender(userUpdate.getGender());
+            if (userUpdate.getWeight() != null)
+                existingUser.setWeight(userUpdate.getWeight());
+            if (userUpdate.getHeight() != null)
+                existingUser.setHeight(userUpdate.getHeight());
+            if (userUpdate.getExercise() != null)
+                existingUser.setExercise(userUpdate.getExercise());
+            if (userUpdate.getDiet() != null)
+                existingUser.setDiet(userUpdate.getDiet());
+            if (userUpdate.getAllergies() != null)
+                existingUser.setAllergies(userUpdate.getAllergies());
+            if (userUpdate.getPastSurgeries() != null)
+                existingUser.setPastSurgeries(userUpdate.getPastSurgeries());
+
+            // Save the updated entity
+            repo.save(existingUser);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Profile updated successfully");
+            response.put("user", UserDTO.from(existingUser));
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error updating profile: " + e.getMessage());
         }
-        faceService.deleteAll();
-        return ResponseEntity.ok("Done");
     }
 
 }
