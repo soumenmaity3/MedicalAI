@@ -400,10 +400,11 @@ public class UserController {
             byte[] decryptedBytes = encryptionUtil.decrypt(user.getProfileImage());
 
             // 🖼️ 4. Return as image (default to jpeg as extension is lost)
+            System.out.println(decryptedBytes);
             return ResponseEntity
                     .ok()
-                    .contentType(MediaType.IMAGE_JPEG)
                     .body(decryptedBytes);
+
 
         } catch (Exception e) {
             return ResponseEntity
@@ -480,6 +481,10 @@ public class UserController {
             }
 
             Users existingUser = userOpt.get();
+
+            if (userUpdate.getProfileImage() != null && userUpdate.getProfileImage().length > 0) {
+                existingUser.setProfileImage(encryptionUtil.encrypt(userUpdate.getProfileImage()));
+            }
 
             // Update only permitted fields
             if (userUpdate.getName() != null)

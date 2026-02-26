@@ -27,7 +27,9 @@ public enum BloodGroup {
     @JsonCreator
     public static BloodGroup fromValue(String value) {
         for (BloodGroup bg : values()) {
-            if (bg.value.equalsIgnoreCase(value)) return bg;
+            if (bg.value.equalsIgnoreCase(value) || bg.name().equalsIgnoreCase(value)) {
+                return bg;
+            }
         }
         throw new IllegalArgumentException("Invalid blood group: " + value);
     }

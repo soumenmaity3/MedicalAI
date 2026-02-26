@@ -1,6 +1,7 @@
 package com.soumen.MedicalAI.dto;
 
 import com.soumen.MedicalAI.Model.users.Users;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,6 +22,7 @@ public class UserDTO {
     private UUID id;
     private String email;
     private String name;
+    @JsonFormat(pattern = "dd/MM/yyyy")
     private LocalDate dob;
     private String blood;
     private String gender;

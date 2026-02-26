@@ -2,6 +2,7 @@ package com.soumen.MedicalAI.Model.users;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
@@ -35,6 +36,7 @@ public class Users {
     @Column(nullable = false)
     private String name;
 
+    @JsonFormat(pattern = "dd/MM/yyyy")
     private LocalDate dob;
 
     @Enumerated(EnumType.STRING)
