@@ -6,7 +6,7 @@ import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
 import org.springframework.stereotype.Service;
 
-@Service
+//@Service
 public class FCMService {
 
     public String sendNotification(String token,
