@@ -1,5 +1,6 @@
 package com.soumen.MedicalAI.controller;
 
+import com.google.firebase.messaging.FirebaseMessagingException;
 import com.soumen.MedicalAI.Model.users.LoginUser;
 import com.soumen.MedicalAI.Model.symptoms.SymptomRequest;
 import com.soumen.MedicalAI.Model.users.Users;
@@ -8,6 +9,7 @@ import com.soumen.MedicalAI.Repository.doctor.DoctorRepo;
 import com.soumen.MedicalAI.config.Authorization;
 import com.soumen.MedicalAI.config.FileEncryptionUtil;
 import com.soumen.MedicalAI.dto.UserDTO;
+import com.soumen.MedicalAI.firebase.FCMService;
 import com.soumen.MedicalAI.service.HuggingFaceService;
 import com.soumen.MedicalAI.service.JWTService;
 import com.soumen.MedicalAI.service.UserService;
@@ -60,6 +62,9 @@ public class UserController {
 
     @Autowired
     private AuthenticationManager authenticationManager;
+
+    @Autowired
+    FCMService fcmService;
 
     @GetMapping("/on-off")
     public ResponseEntity<?> serverOnOff() {
@@ -523,5 +528,16 @@ public class UserController {
                     .body("Error updating profile: " + e.getMessage());
         }
     }
+
+//
+//    // Firebase
+//    @PostMapping("/notify")
+//    public String send(@RequestParam String token) throws FirebaseMessagingException {
+//        return fcmService.sendNotification(
+//                token,
+//                "MedicalAi",
+//                "Profile Update Successfully."
+//        );
+//    }
 
 }
