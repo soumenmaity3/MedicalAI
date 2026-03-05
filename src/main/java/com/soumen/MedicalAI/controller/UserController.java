@@ -63,8 +63,8 @@ public class UserController {
     @Autowired
     private AuthenticationManager authenticationManager;
 
-    @Autowired
-    FCMService fcmService;
+//    @Autowired
+//    FCMService fcmService;
 
     @GetMapping("/on-off")
     public ResponseEntity<?> serverOnOff() {
