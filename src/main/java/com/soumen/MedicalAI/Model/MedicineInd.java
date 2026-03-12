@@ -46,7 +46,7 @@ public class MedicineInd {
     @Column(name = "pack_type")
     private String packType;
 
-    @Column(name = "storage_conditions")
+    @Column(name = "storage_conditions", length = 2000)
     private String storageConditions;
 
     @Column(name = "uses", length = 5000)

@@ -46,7 +46,7 @@ public class MedicineController {
     @GetMapping("/search")
     public ResponseEntity<?> searchMedicine(
             @RequestHeader("Authorization") String authHeader,
-            @RequestParam String name) {
+            @RequestParam("name") String name) {
 
         String token = authorization.token(authHeader);
 
