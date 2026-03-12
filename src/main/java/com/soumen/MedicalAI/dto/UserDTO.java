@@ -33,6 +33,10 @@ public class UserDTO {
     private String allergies;
     private String pastSurgeries;
     private String profileImage;
+    private Integer systolic_bp;
+    private Integer diastolic_bp;
+    private Boolean smoker;
+    private Boolean alcoholConsumer;
 
     /**
      * Convert Users entity to UserDTO
@@ -59,6 +63,10 @@ public class UserDTO {
         dto.setAllergies(user.getAllergies());
         dto.setPastSurgeries(user.getPastSurgeries());
         dto.setProfileImage(user.getProfileImage() != null ? "exists" : null);
+        dto.setSystolic_bp(user.getSystolic_bp());
+        dto.setDiastolic_bp(user.getDiastolic_bp());
+        dto.setSmoker(user.getSmoker());
+        dto.setAlcoholConsumer(user.getAlcoholConsumer());
 
         return dto;
     }

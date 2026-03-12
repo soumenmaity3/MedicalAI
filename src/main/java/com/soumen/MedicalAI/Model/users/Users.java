@@ -60,4 +60,10 @@ public class Users {
     @JdbcTypeCode(SqlTypes.BINARY)
     @Column(nullable = true, columnDefinition = "BYTEA")
     private byte[] profileImage;
+
+    private Integer systolic_bp = 120;
+    private Integer diastolic_bp = 80;
+
+    private Boolean smoker = false;
+    private Boolean alcoholConsumer = false;
 }

@@ -124,8 +124,7 @@
 			<version>2.9.2</version>
 		</dependency>
 
-	</dependencies>
-
+</dependencies>
 	<build>
 <finalName>MedicalAI</finalName>
 		<plugins>
