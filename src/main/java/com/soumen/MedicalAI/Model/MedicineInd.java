@@ -49,48 +49,48 @@ public class MedicineInd {
     @Column(name = "storage_conditions")
     private String storageConditions;
 
-    @Column(name = "uses")
+    @Column(name = "uses", length = 5000)
     private String uses;
 
-    @Column(name = "benefits")
+    @Column(name = "benefits", length = 5000)
     private String benefits;
 
-    @Column(name = "how_it_works")
+    @Column(name = "how_it_works", length = 3000)
     private String howItWorks;
 
-    @Column(name = "common_side_effects")
+    @Column(name = "common_side_effects", length = 1500)
     private String commonSideEffects;
 
-    @Column(name = "alcohol_interaction")
+    @Column(name = "alcohol_interaction", length = 1500)
     private String alcoholInteraction;
 
-    @Column(name = "pregnancy_safety")
+    @Column(name = "pregnancy_safety", length = 500)
     private String pregnancySafety;
 
-    @Column(name = "breastfeeding_safety")
+    @Column(name = "breastfeeding_safety", length = 500)
     private String breastfeedingSafety;
 
-    @Column(name = "kidney_safety")
+    @Column(name = "kidney_safety", length = 500)
     private String kidneySafety;
 
-    @Column(name = "liver_safety")
+    @Column(name = "liver_safety", length = 500)
     private String liverSafety;
 
-    @Column(name = "how_to_use")
+    @Column(name = "how_to_use", length = 2000)
     private String howToUse;
 
     @Column(name = "substitute_count")
     private Integer substituteCount;
 
-    @Column(name = "substitute_list")
+    @Column(name = "substitute_list", length = 5000)
     private String substituteList;
 
-    @Column(name = "chemical_class")
+    @Column(name = "chemical_class", length = 500)
     private String chemicalClass;
 
-    @Column(name = "habit_forming")
+    @Column(name = "habit_forming", length = 500)
     private String habitForming;
 
-    @Column(name = "action_class")
+    @Column(name = "action_class", length = 500)
     private String actionClass;
 }
