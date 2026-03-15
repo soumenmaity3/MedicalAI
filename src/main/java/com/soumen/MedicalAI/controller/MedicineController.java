@@ -31,7 +31,7 @@ public class MedicineController {
     @GetMapping("/all-medicines")
     public ResponseEntity<?> allMedicine(@RequestHeader("Authorization") String authHeader,
                                          @RequestParam(defaultValue = "0") int offset,
-                                         @RequestParam(defaultValue = "50") int limit) {
+                                         @RequestParam(defaultValue = "25") int limit) {
         String token = authorization.token(authHeader);
 
         // Check if token extraction failed
