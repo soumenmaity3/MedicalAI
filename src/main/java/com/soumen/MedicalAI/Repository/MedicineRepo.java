@@ -21,4 +21,6 @@ public interface MedicineRepo extends JpaRepository<MedicineInd, Integer> {
             """, nativeQuery = true)
     List<MedicineInd> fuzzySearch(@Param("name") String name);
 
+    @Query(value = "SELECT * FROM medicine_ind ORDER BY RAND() LIMIT :limit OFFSET :offset", nativeQuery = true)
+    List<MedicineInd> fetchMedicines(int limit, int offset);
 }

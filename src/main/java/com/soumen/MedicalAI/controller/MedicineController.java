@@ -5,6 +5,7 @@ import com.soumen.MedicalAI.Model.users.Users;
 import com.soumen.MedicalAI.Repository.MedicineRepo;
 import com.soumen.MedicalAI.Repository.UserRepository;
 import com.soumen.MedicalAI.config.Authorization;
+import com.soumen.MedicalAI.service.MedicineService;
 import com.soumen.MedicalAI.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -21,12 +22,16 @@ public class MedicineController {
     @Autowired
     private UserService service;
     @Autowired
+    private MedicineService medicineService;
+    @Autowired
     private Authorization authorization;
     @Autowired
     private UserRepository userRepo;
 
     @GetMapping("/all-medicines")
-    public ResponseEntity<?> allMedicine(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<?> allMedicine(@RequestHeader("Authorization") String authHeader,
+                                         @RequestParam(defaultValue = "0") int offset,
+                                         @RequestParam(defaultValue = "50") int limit) {
         String token = authorization.token(authHeader);
 
         // Check if token extraction failed
@@ -36,9 +41,9 @@ public class MedicineController {
 
         String email = service.EmailFromToken(token);
 
-        Users existingUser = userRepo.findByEmailIgnoreCase(email)
+        userRepo.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        List<MedicineInd> medicines = repo.findAll();
+        List<MedicineInd> medicines = medicineService.getMedicines(offset, limit);
 
         return new ResponseEntity<>(medicines, HttpStatus.OK);
     }
